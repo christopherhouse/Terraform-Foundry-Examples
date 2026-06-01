@@ -1,0 +1,231 @@
+name: Deploy
+
+on:
+  pull_request:
+    paths:
+      - 'scenarios/**'
+      - '.github/workflows/deploy.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scenarios/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+    inputs:
+      scenario_01:
+        description: 'Scenario 01 — basic Foundry'
+        type: boolean
+        default: false
+      apply:
+        description: 'Apply (false = plan only)'
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: deploy-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+env:
+  TF_VERSION: '1.10.0'
+  ARM_USE_OIDC: 'true'
+  ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+jobs:
+  detect:
+    name: Detect scenarios
+    runs-on: ubuntu-latest
+    outputs:
+      scenarios: ${{ steps.compute.outputs.scenarios }}
+      should_apply: ${{ steps.compute.outputs.should_apply }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute scenario list
+        id: compute
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.sha }}
+          INPUT_S01: ${{ inputs.scenario_01 }}
+          INPUT_APPLY: ${{ inputs.apply }}
+        run: |
+          set -euo pipefail
+
+          # Helper: emit a JSON object for a scenario folder, deriving env name "scenario-NN-dev"
+          emit() {
+            local folder="$1"
+            local nn
+            nn=$(echo "$folder" | cut -d- -f1)
+            jq -n --arg f "$folder" --arg e "scenario-${nn}-dev" '{folder: $f, env: $e}'
+          }
+
+          declare -a folders=()
+
+          if [[ "$EVENT" == "workflow_dispatch" ]]; then
+            [[ "$INPUT_S01" == "true" ]] && folders+=("01-basic-foundry")
+            should_apply="${INPUT_APPLY}"
+          else
+            if [[ "$EVENT" == "pull_request" ]]; then
+              changed=$(git diff --name-only "$PR_BASE_SHA" "$PR_HEAD_SHA")
+            else
+              # push to main; PUSH_BEFORE may be all-zeros on first commit
+              if [[ "$PUSH_BEFORE" =~ ^0+$ ]]; then
+                changed=$(git ls-tree -r --name-only HEAD)
+              else
+                changed=$(git diff --name-only "$PUSH_BEFORE" "$PUSH_AFTER")
+              fi
+            fi
+            echo "Changed files:"
+            echo "$changed"
+            for s in scenarios/*/; do
+              name=$(basename "$s")
+              if echo "$changed" | grep -qE "^scenarios/${name}/"; then
+                folders+=("$name")
+              fi
+            done
+            if [[ "$EVENT" == "push" ]]; then
+              should_apply="true"
+            else
+              should_apply="false"
+            fi
+          fi
+
+          if [[ ${#folders[@]} -eq 0 ]]; then
+            json='[]'
+          else
+            json=$(for f in "${folders[@]}"; do emit "$f"; done | jq -s -c .)
+          fi
+
+          echo "scenarios=$json" >> "$GITHUB_OUTPUT"
+          echo "should_apply=$should_apply" >> "$GITHUB_OUTPUT"
+          echo "Selected scenarios: $json"
+          echo "Should apply: $should_apply"
+
+  plan:
+    name: Plan ${{ matrix.scenario.folder }}
+    needs: detect
+    if: needs.detect.outputs.scenarios != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: ${{ fromJSON(needs.detect.outputs.scenarios) }}
+    defaults:
+      run:
+        working-directory: scenarios/${{ matrix.scenario.folder }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive
+
+      - name: Terraform init
+        run: terraform init -no-color -input=false
+
+      - name: Terraform validate
+        run: terraform validate -no-color
+
+      - name: Terraform plan
+        run: |
+          set -euo pipefail
+          terraform plan -no-color -input=false -out=tfplan
+          terraform show -no-color tfplan > plan.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ matrix.scenario.folder }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            scenarios/${{ matrix.scenario.folder }}/tfplan
+            scenarios/${{ matrix.scenario.folder }}/plan.txt
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Comment plan on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const folder = '${{ matrix.scenario.folder }}';
+            const plan = fs.readFileSync(`scenarios/${folder}/plan.txt`, 'utf8');
+            const max = 60000;
+            const truncated = plan.length > max ? plan.slice(0, max) + "\n\n...[truncated]" : plan;
+            const body = [
+              `### Terraform plan — \`${folder}\``,
+              '',
+              '<details><summary>Plan output</summary>',
+              '',
+              '```terraform',
+              truncated,
+              '```',
+              '',
+              '</details>',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
+
+  apply:
+    name: Apply ${{ matrix.scenario.folder }}
+    needs: [detect, plan]
+    if: needs.detect.outputs.should_apply == 'true' && needs.detect.outputs.scenarios != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        scenario: ${{ fromJSON(needs.detect.outputs.scenarios) }}
+    environment: ${{ matrix.scenario.env }}
+    defaults:
+      run:
+        working-directory: scenarios/${{ matrix.scenario.folder }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ matrix.scenario.folder }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: scenarios/${{ matrix.scenario.folder }}
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform init
+        run: terraform init -no-color -input=false
+
+      - name: Terraform apply
+        run: terraform apply -no-color -input=false -auto-approve tfplan
