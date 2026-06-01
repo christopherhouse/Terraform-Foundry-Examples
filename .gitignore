@@ -1,0 +1,31 @@
+# Terraform
+**/.terraform/
+**/.terraform.lock.hcl.bak
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfplan.json
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# tfvars often hold secrets; commit *.auto.tfvars or scenario-specific committed defaults explicitly
+*.tfvars
+!**/example.tfvars
+!**/*.auto.tfvars
+
+# Editors / OS
+.vscode/
+.idea/
+.claude/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Misc
+*.log
