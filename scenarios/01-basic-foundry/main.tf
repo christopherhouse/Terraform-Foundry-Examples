@@ -83,3 +83,28 @@ resource "azapi_resource" "foundry_project" {
   schema_validation_enabled = false
   response_export_values    = ["properties"]
 }
+
+resource "azapi_resource" "gpt4o" {
+  type      = "Microsoft.CognitiveServices/accounts/deployments@2026-03-01"
+  parent_id = azapi_resource.foundry_account.id
+  name      = "gpt-4o"
+
+  body = {
+    sku = {
+      name     = var.gpt4o_sku_name
+      capacity = var.gpt4o_capacity
+    }
+    properties = {
+      model = merge(
+        {
+          format = "OpenAI"
+          name   = "gpt-4o"
+        },
+        var.gpt4o_model_version == null ? {} : { version = var.gpt4o_model_version }
+      )
+    }
+  }
+
+  schema_validation_enabled = false
+  response_export_values    = ["properties.model", "sku"]
+}
