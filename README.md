@@ -7,6 +7,7 @@ Reference Terraform implementations of Microsoft Foundry deployments for a range
 | # | Folder | Description |
 |---|---|---|
 | 01 | [`scenarios/01-basic-foundry`](./scenarios/01-basic-foundry) | Minimal Foundry account + project demonstrating end-to-end CI/CD automation. |
+| 02 | [`scenarios/02-private-networking`](./scenarios/02-private-networking) | Network-isolated Foundry with VNet-injected Standard Agent, private endpoints for Foundry/Cosmos/Storage/Search, and project capability host. |
 
 ## Conventions
 

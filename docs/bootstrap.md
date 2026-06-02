@@ -44,6 +44,7 @@ Three subjects on the same app reg (issuer `https://token.actions.githubusercont
 | `gh-pull-request` | `repo:christopherhouse/Terraform-Foundry-Examples:pull_request` | PR plan job |
 | `gh-main` | `repo:christopherhouse/Terraform-Foundry-Examples:ref:refs/heads/main` | Push-to-main plan job, manual dispatch from main (non-environment jobs) |
 | `gh-env-scenario-01-dev` | `repo:christopherhouse/Terraform-Foundry-Examples:environment:scenario-01-dev` | Apply job for scenario 01 |
+| `gh-env-scenario-02-dev` | `repo:christopherhouse/Terraform-Foundry-Examples:environment:scenario-02-dev` | Apply job for scenario 02 |
 
 Each future scenario gets its own `gh-env-scenario-NN-dev` fedcred.
 
@@ -64,5 +65,6 @@ No secrets — OIDC handles auth.
 | Name | Reviewers | Branch policy |
 |---|---|---|
 | `scenario-01-dev` | `christopherhouse` (self-review allowed) | `main` only |
+| `scenario-02-dev` | `christopherhouse` (self-review allowed) | `main` only |
 
 Add one new environment per scenario as the repo grows.
