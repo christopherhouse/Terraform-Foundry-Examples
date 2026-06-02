@@ -1,4 +1,4 @@
-location    = "eastus2"
+location    = "westus3"
 environment = "dev"
 workload    = "foundry"
 scenario_id = "s02"

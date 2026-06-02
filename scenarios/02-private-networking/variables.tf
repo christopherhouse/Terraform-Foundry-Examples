@@ -1,7 +1,7 @@
 variable "location" {
   description = "Azure region for the deployment. Must support Foundry Standard Agent VNet injection."
   type        = string
-  default     = "eastus2"
+  default     = "westus3"
 }
 
 variable "environment" {
