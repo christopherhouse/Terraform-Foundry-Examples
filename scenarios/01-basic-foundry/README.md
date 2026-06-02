@@ -9,6 +9,7 @@ The smallest possible Foundry footprint, used to demonstrate end-to-end CI/CD au
 | Resource group | `Microsoft.Resources/resourceGroups` | Container for the scenario. |
 | Foundry account | `Microsoft.CognitiveServices/accounts` (`kind = AIServices`) | The Foundry account, with `allowProjectManagement = true`, system-assigned managed identity, local auth disabled. |
 | Foundry project | `Microsoft.CognitiveServices/accounts/projects` | A single project under the account. |
+| gpt-4o deployment | `Microsoft.CognitiveServices/accounts/deployments` | `gpt-4o`, `Standard` SKU, capacity `50` (= 50K TPM). Tunable via `gpt4o_*` vars. |
 
 API version: `2026-03-01` via the `azapi` provider.
 

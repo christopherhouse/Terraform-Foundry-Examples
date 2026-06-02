@@ -38,3 +38,21 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "gpt4o_sku_name" {
+  description = "SKU name for the gpt-4o model deployment (Standard, GlobalStandard, DataZoneStandard, ProvisionedManaged)."
+  type        = string
+  default     = "Standard"
+}
+
+variable "gpt4o_capacity" {
+  description = "Capacity for the gpt-4o deployment, in units of 1K TPM (e.g. 50 = 50K TPM)."
+  type        = number
+  default     = 50
+}
+
+variable "gpt4o_model_version" {
+  description = "Model version for gpt-4o. Leave null to use the region default."
+  type        = string
+  default     = null
+}
