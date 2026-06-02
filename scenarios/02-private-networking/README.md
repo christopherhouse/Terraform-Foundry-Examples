@@ -47,14 +47,14 @@ Resources follow `<abbr>-<workload>-<scenario>-<env>-<region>-<instance>`. With 
 
 | Resource | Name |
 |---|---|
-| Resource group | `rg-foundry-s02-dev-eus2-001` |
-| VNet | `vnet-foundry-s02-dev-eus2-001` |
-| Foundry account | `cog-foundry-s02-dev-eus2-001` |
-| Foundry project | `proj-foundry-s02-dev-eus2-001` |
-| Cosmos DB | `cosno-foundry-s02-dev-eus2-001` |
-| AI Search | `srch-foundry-s02-dev-eus2-001` |
-| Storage account | `stfoundrys02deveus2001` (flattened — `st` + base name minus hyphens, ≤24 chars) |
-| Private endpoints | `pep-{blob,cosmos,search,foundry}-foundry-s02-dev-eus2-001` |
+| Resource group | `rg-foundry-s02-dev-wus3-001` |
+| VNet | `vnet-foundry-s02-dev-wus3-001` |
+| Foundry account | `cog-foundry-s02-dev-wus3-001` |
+| Foundry project | `proj-foundry-s02-dev-wus3-001` |
+| Cosmos DB | `cosno-foundry-s02-dev-wus3-001` |
+| AI Search | `srch-foundry-s02-dev-wus3-001` |
+| Storage account | `stfoundrys02devwus3001` (flattened — `st` + base name minus hyphens, ≤24 chars) |
+| Private endpoints | `pep-{blob,cosmos,search,foundry}-foundry-s02-dev-wus3-001` |
 
 ## State
 
