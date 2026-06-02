@@ -127,9 +127,9 @@ resource "time_sleep" "purge_cooldown" {
 
 # Destroy-time purge of the soft-deleted account. Without this the agent subnet
 # can't be deleted (InUseSubnetCannotBeDeleted) and the account name stays
-# reserved. Matches the API/type pair Microsoft uses in their reference sample.
+# reserved.
 resource "azapi_resource_action" "purge_on_destroy" {
-  type        = "Microsoft.Resources/resourceGroups/deletedAccounts@2021-04-30"
+  type        = "Microsoft.CognitiveServices/locations/resourceGroups/deletedAccounts@2025-06-01"
   resource_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.CognitiveServices/locations/${var.location}/resourceGroups/${var.resource_group_name}/deletedAccounts/${local.account_name}"
   method      = "DELETE"
   when        = "destroy"
