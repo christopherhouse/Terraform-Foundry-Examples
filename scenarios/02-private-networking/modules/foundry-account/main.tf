@@ -62,6 +62,16 @@ resource "azapi_resource" "foundry_account" {
   ]
 }
 
+# azapi reports the account "created" once ARM accepts the PUT, but the
+# networkInjections-driven Container Apps environment continues provisioning
+# asynchronously. Child operations like attaching a Private Endpoint fail with
+# AccountProvisioningStateInvalid until the account reaches Succeeded — observed
+# at >3 min after azapi returned success on a fresh wus3 deploy.
+resource "time_sleep" "wait_account_ready" {
+  depends_on      = [azapi_resource.foundry_account]
+  create_duration = "300s"
+}
+
 resource "azapi_resource" "gpt4o" {
   type      = "Microsoft.CognitiveServices/accounts/deployments@2026-03-01"
   parent_id = azapi_resource.foundry_account.id
