@@ -1,7 +1,7 @@
 location    = "westus3"
 environment = "dev"
 workload    = "foundry"
-scenario_id = "s02"
+scenario_id = "s03"
 instance    = "001"
 
 vnet_address_space             = "192.168.0.0/16"

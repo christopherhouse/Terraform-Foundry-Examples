@@ -31,7 +31,7 @@ resource "azapi_resource" "project" {
 
   body = {
     properties = {
-      displayName = "Scenario 02 Private Foundry (${var.environment})"
+      displayName = "Scenario 03 Private Foundry (${var.environment})"
       description = "Network-isolated Foundry project with VNet-injected Standard Agent and BYO Cosmos/Storage/Search."
     }
   }

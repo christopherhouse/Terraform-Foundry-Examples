@@ -22,9 +22,9 @@ variable "workload" {
 }
 
 variable "scenario_id" {
-  description = "Scenario identifier embedded in resource names (e.g. s02)."
+  description = "Scenario identifier embedded in resource names (e.g. s03)."
   type        = string
-  default     = "s02"
+  default     = "s03"
 }
 
 variable "instance" {
