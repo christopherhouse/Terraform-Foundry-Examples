@@ -56,3 +56,25 @@ variable "gpt4o_model_version" {
   type        = string
   default     = null
 }
+
+variable "foundry_users" {
+  description = "Principals granted the Foundry User role on the Foundry account (data-plane AI access)."
+  type = list(object({
+    object_id      = string
+    principal_type = string
+  }))
+  default = [
+    {
+      object_id      = "2ede4c0c-360b-47f8-80b0-bdba8badea7b"
+      principal_type = "User"
+    },
+  ]
+
+  validation {
+    condition = alltrue([
+      for u in var.foundry_users :
+      contains(["User", "Group", "ServicePrincipal", "ForeignGroup", "Device"], u.principal_type)
+    ])
+    error_message = "Each entry's principal_type must be one of: User, Group, ServicePrincipal, ForeignGroup, Device."
+  }
+}

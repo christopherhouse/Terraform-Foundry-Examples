@@ -55,6 +55,15 @@ variable "embedding_model_version" {
   default     = null
 }
 
+variable "foundry_users" {
+  description = "Principals granted the Foundry User role on the Foundry account."
+  type = list(object({
+    object_id      = string
+    principal_type = string
+  }))
+  default = []
+}
+
 variable "tags" {
   description = "Tags to apply to module-managed resources."
   type        = map(string)
