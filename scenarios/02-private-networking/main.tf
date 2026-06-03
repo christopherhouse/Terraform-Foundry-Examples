@@ -70,6 +70,8 @@ module "foundry_account" {
   embedding_capacity      = var.embedding_capacity
   embedding_model_version = var.embedding_model_version
 
+  foundry_users = var.foundry_users
+
   tags = local.tags
 }
 

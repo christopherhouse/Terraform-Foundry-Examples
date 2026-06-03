@@ -24,6 +24,10 @@ locals {
     Repo        = "christopherhouse/Terraform-Foundry-Examples"
   }
   tags = merge(local.default_tags, var.tags)
+
+  # Per Microsoft docs, reference the role by ID (not name) during the
+  # Foundry RBAC rename rollout. https://learn.microsoft.com/azure/foundry/concepts/rbac-foundry
+  foundry_user_role_id = "53ca6127-db72-4b80-b1b0-d745d6d5456d"
 }
 
 resource "azurerm_resource_group" "this" {
@@ -82,6 +86,15 @@ resource "azapi_resource" "foundry_project" {
 
   schema_validation_enabled = false
   response_export_values    = ["properties"]
+}
+
+resource "azurerm_role_assignment" "foundry_user" {
+  for_each = { for u in var.foundry_users : u.object_id => u }
+
+  scope              = azapi_resource.foundry_account.id
+  role_definition_id = "/providers/Microsoft.Authorization/roleDefinitions/${local.foundry_user_role_id}"
+  principal_id       = each.value.object_id
+  principal_type     = each.value.principal_type
 }
 
 resource "azapi_resource" "gpt4o" {

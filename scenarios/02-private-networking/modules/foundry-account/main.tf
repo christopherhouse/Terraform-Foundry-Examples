@@ -1,5 +1,9 @@
 terraform {
   required_providers {
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 4.0"
+    }
     azapi = {
       source  = "Azure/azapi"
       version = "~> 2.0"
@@ -15,6 +19,10 @@ data "azurerm_client_config" "current" {}
 
 locals {
   account_name = "cog-${var.base_name}"
+
+  # Per Microsoft docs, reference the role by ID (not name) during the
+  # Foundry RBAC rename rollout. https://learn.microsoft.com/azure/foundry/concepts/rbac-foundry
+  foundry_user_role_id = "53ca6127-db72-4b80-b1b0-d745d6d5456d"
 }
 
 resource "azapi_resource" "foundry_account" {
@@ -70,6 +78,15 @@ resource "azapi_resource" "foundry_account" {
 resource "time_sleep" "wait_account_ready" {
   depends_on      = [azapi_resource.foundry_account]
   create_duration = "300s"
+}
+
+resource "azurerm_role_assignment" "foundry_user" {
+  for_each = { for u in var.foundry_users : u.object_id => u }
+
+  scope              = azapi_resource.foundry_account.id
+  role_definition_id = "/providers/Microsoft.Authorization/roleDefinitions/${local.foundry_user_role_id}"
+  principal_id       = each.value.object_id
+  principal_type     = each.value.principal_type
 }
 
 resource "azapi_resource" "gpt4o" {
