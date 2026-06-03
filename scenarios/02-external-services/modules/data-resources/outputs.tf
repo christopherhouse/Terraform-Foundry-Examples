@@ -47,14 +47,14 @@ output "log_analytics_workspace_id" {
 }
 
 output "app_insights_id" {
-  value = azurerm_application_insights.this.id
+  value = azapi_resource.app_insights.id
 }
 
 output "app_insights_name" {
-  value = azurerm_application_insights.this.name
+  value = azapi_resource.app_insights.name
 }
 
 output "app_insights_connection_string" {
-  value     = azurerm_application_insights.this.connection_string
+  value     = azapi_resource.app_insights.output.properties.ConnectionString
   sensitive = true
 }

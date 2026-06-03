@@ -129,14 +129,24 @@ resource "azurerm_log_analytics_workspace" "this" {
   tags = var.tags
 }
 
-resource "azurerm_application_insights" "this" {
-  name                = local.app_insights_name
-  resource_group_name = var.resource_group_name
-  location            = var.location
+# Using azapi instead of azurerm_application_insights to dodge the v4 provider's
+# `billing/features` 404 (the API endpoint is gone for newer components).
+resource "azapi_resource" "app_insights" {
+  type      = "Microsoft.Insights/components@2020-02-02"
+  parent_id = var.resource_group_id
+  name      = local.app_insights_name
+  location  = var.location
 
-  application_type              = "web"
-  workspace_id                  = azurerm_log_analytics_workspace.this.id
-  local_authentication_disabled = false
+  body = {
+    kind = "web"
+    properties = {
+      Application_Type    = "web"
+      WorkspaceResourceId = azurerm_log_analytics_workspace.this.id
+    }
+  }
 
   tags = var.tags
+
+  schema_validation_enabled = false
+  response_export_values    = ["properties.ConnectionString"]
 }
