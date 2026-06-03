@@ -100,6 +100,11 @@ resource "azapi_resource" "ai_search" {
   tags = var.tags
 
   response_export_values = ["identity.principalId"]
+
+  # AI Search creates in westus3 have intermittently taken >30m (azapi default).
+  timeouts {
+    create = "60m"
+  }
 }
 
 resource "azurerm_key_vault" "this" {

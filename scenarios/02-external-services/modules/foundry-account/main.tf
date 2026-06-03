@@ -77,11 +77,14 @@ resource "azurerm_role_assignment" "foundry_user" {
   depends_on = [time_sleep.wait_account_ready]
 }
 
-# Account SMI needs to read KV secrets for the AzureKeyVault connection
-# (authType = AccountManagedIdentity).
-resource "azurerm_role_assignment" "account_kv_secrets_user" {
+# Account SMI needs WRITE access to KV secrets, not just read. Once a BYO KV is
+# attached, every subsequent connection that has a credential (e.g. App Insights
+# with authType=ApiKey) gets its credential stored in the BYO KV — the account
+# SMI is what writes those secrets. Read-only (Secrets User) is enough for AAD
+# connections but fails the moment any non-AAD connection is added.
+resource "azurerm_role_assignment" "account_kv_secrets_officer" {
   scope                = var.key_vault_id
-  role_definition_name = "Key Vault Secrets User"
+  role_definition_name = "Key Vault Secrets Officer"
   principal_id         = azapi_resource.foundry_account.output.identity.principalId
 
   depends_on = [time_sleep.wait_account_ready]
@@ -176,7 +179,7 @@ resource "azapi_resource" "conn_key_vault" {
   schema_validation_enabled = false
 
   depends_on = [
-    azurerm_role_assignment.account_kv_secrets_user,
+    azurerm_role_assignment.account_kv_secrets_officer,
   ]
 }
 
