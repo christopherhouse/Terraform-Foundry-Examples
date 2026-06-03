@@ -150,79 +150,10 @@ resource "azapi_resource" "text_embedding_3_large" {
 # is no implicit inheritance of capability host config, only of the connections
 # themselves.
 
-resource "azapi_resource" "conn_cosmos" {
-  type      = "Microsoft.CognitiveServices/accounts/connections@2026-03-01"
-  parent_id = azapi_resource.foundry_account.id
-  name      = var.cosmos_account_name
-
-  body = {
-    properties = {
-      category      = "CosmosDb"
-      target        = var.cosmos_account_endpoint
-      authType      = "AAD"
-      isSharedToAll = true
-      metadata = {
-        ApiType    = "Azure"
-        ResourceId = var.cosmos_account_id
-        location   = var.location
-      }
-    }
-  }
-
-  schema_validation_enabled = false
-
-  depends_on = [time_sleep.wait_account_ready]
-}
-
-resource "azapi_resource" "conn_storage" {
-  type      = "Microsoft.CognitiveServices/accounts/connections@2026-03-01"
-  parent_id = azapi_resource.foundry_account.id
-  name      = var.storage_account_name
-
-  body = {
-    properties = {
-      category      = "AzureStorageAccount"
-      target        = var.storage_blob_endpoint
-      authType      = "AAD"
-      isSharedToAll = true
-      metadata = {
-        ApiType    = "Azure"
-        ResourceId = var.storage_account_id
-        location   = var.location
-      }
-    }
-  }
-
-  schema_validation_enabled = false
-
-  depends_on = [time_sleep.wait_account_ready]
-}
-
-resource "azapi_resource" "conn_search" {
-  type      = "Microsoft.CognitiveServices/accounts/connections@2026-03-01"
-  parent_id = azapi_resource.foundry_account.id
-  name      = var.ai_search_name
-
-  body = {
-    properties = {
-      category      = "CognitiveSearch"
-      target        = "https://${var.ai_search_name}.search.windows.net"
-      authType      = "AAD"
-      isSharedToAll = true
-      metadata = {
-        ApiType    = "Azure"
-        ApiVersion = "2025-05-01-preview"
-        ResourceId = var.ai_search_id
-        location   = var.location
-      }
-    }
-  }
-
-  schema_validation_enabled = false
-
-  depends_on = [time_sleep.wait_account_ready]
-}
-
+# BYO Key Vault connection MUST be the first connection on the account. The
+# Foundry account RP rejects attaching a BYO KV ("switching key vault") once
+# any other connection exists, because their secrets are bound to the account's
+# managed KV. Sequence: account ready -> KV connection -> all other connections.
 resource "azapi_resource" "conn_key_vault" {
   type      = "Microsoft.CognitiveServices/accounts/connections@2026-03-01"
   parent_id = azapi_resource.foundry_account.id
@@ -249,6 +180,79 @@ resource "azapi_resource" "conn_key_vault" {
   ]
 }
 
+resource "azapi_resource" "conn_cosmos" {
+  type      = "Microsoft.CognitiveServices/accounts/connections@2026-03-01"
+  parent_id = azapi_resource.foundry_account.id
+  name      = var.cosmos_account_name
+
+  body = {
+    properties = {
+      category      = "CosmosDb"
+      target        = var.cosmos_account_endpoint
+      authType      = "AAD"
+      isSharedToAll = true
+      metadata = {
+        ApiType    = "Azure"
+        ResourceId = var.cosmos_account_id
+        location   = var.location
+      }
+    }
+  }
+
+  schema_validation_enabled = false
+
+  depends_on = [azapi_resource.conn_key_vault]
+}
+
+resource "azapi_resource" "conn_storage" {
+  type      = "Microsoft.CognitiveServices/accounts/connections@2026-03-01"
+  parent_id = azapi_resource.foundry_account.id
+  name      = var.storage_account_name
+
+  body = {
+    properties = {
+      category      = "AzureStorageAccount"
+      target        = var.storage_blob_endpoint
+      authType      = "AAD"
+      isSharedToAll = true
+      metadata = {
+        ApiType    = "Azure"
+        ResourceId = var.storage_account_id
+        location   = var.location
+      }
+    }
+  }
+
+  schema_validation_enabled = false
+
+  depends_on = [azapi_resource.conn_key_vault]
+}
+
+resource "azapi_resource" "conn_search" {
+  type      = "Microsoft.CognitiveServices/accounts/connections@2026-03-01"
+  parent_id = azapi_resource.foundry_account.id
+  name      = var.ai_search_name
+
+  body = {
+    properties = {
+      category      = "CognitiveSearch"
+      target        = "https://${var.ai_search_name}.search.windows.net"
+      authType      = "AAD"
+      isSharedToAll = true
+      metadata = {
+        ApiType    = "Azure"
+        ApiVersion = "2025-05-01-preview"
+        ResourceId = var.ai_search_id
+        location   = var.location
+      }
+    }
+  }
+
+  schema_validation_enabled = false
+
+  depends_on = [azapi_resource.conn_key_vault]
+}
+
 resource "azapi_resource" "conn_app_insights" {
   type      = "Microsoft.CognitiveServices/accounts/connections@2026-03-01"
   parent_id = azapi_resource.foundry_account.id
@@ -272,7 +276,7 @@ resource "azapi_resource" "conn_app_insights" {
 
   schema_validation_enabled = false
 
-  depends_on = [time_sleep.wait_account_ready]
+  depends_on = [azapi_resource.conn_key_vault]
 }
 
 # Account-level capability host ------------------------------------------------
