@@ -9,7 +9,7 @@ variable "location" {
 }
 
 variable "base_name" {
-  description = "CAF base name used for child resource naming (e.g. foundry-s02-dev-wus3-001)."
+  description = "CAF base name used for child resource naming (e.g. foundry-s03-dev-wus3-001)."
   type        = string
 }
 

@@ -24,7 +24,7 @@ terraform {
     resource_group_name  = "RG-TF"
     storage_account_name = "cmhtfstatesa"
     container_name       = "tfstate"
-    key                  = "foundry-examples/02-private-networking.tfstate"
+    key                  = "foundry-examples/03-private-networking.tfstate"
     use_oidc             = true
     use_azuread_auth     = true
   }

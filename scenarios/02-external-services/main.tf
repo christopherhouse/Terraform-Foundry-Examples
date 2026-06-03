@@ -1,0 +1,104 @@
+locals {
+  region_short = {
+    eastus        = "eus"
+    eastus2       = "eus2"
+    westus2       = "wus2"
+    westus3       = "wus3"
+    swedencentral = "swc"
+    northeurope   = "neu"
+    westeurope    = "weu"
+  }
+  region_abbr = lookup(local.region_short, var.location, var.location)
+
+  base_name      = "${var.workload}-${var.scenario_id}-${var.environment}-${local.region_abbr}-${var.instance}"
+  base_name_flat = lower(replace(local.base_name, "-", ""))
+
+  rg_name = "rg-${local.base_name}"
+
+  default_tags = {
+    Workload    = var.workload
+    Scenario    = var.scenario_id
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+    Repo        = "christopherhouse/Terraform-Foundry-Examples"
+  }
+  tags = merge(local.default_tags, var.tags)
+}
+
+resource "azurerm_resource_group" "this" {
+  name     = local.rg_name
+  location = var.location
+  tags     = local.tags
+}
+
+module "data_resources" {
+  source = "./modules/data-resources"
+
+  resource_group_name = azurerm_resource_group.this.name
+  resource_group_id   = azurerm_resource_group.this.id
+  location            = var.location
+  base_name           = local.base_name
+  base_name_flat      = local.base_name_flat
+  tags                = local.tags
+}
+
+module "foundry_account" {
+  source = "./modules/foundry-account"
+
+  resource_group_id   = azurerm_resource_group.this.id
+  resource_group_name = azurerm_resource_group.this.name
+  location            = var.location
+  base_name           = local.base_name
+
+  gpt4o_sku_name          = var.gpt4o_sku_name
+  gpt4o_capacity          = var.gpt4o_capacity
+  gpt4o_model_version     = var.gpt4o_model_version
+  embedding_sku_name      = var.embedding_sku_name
+  embedding_capacity      = var.embedding_capacity
+  embedding_model_version = var.embedding_model_version
+
+  storage_account_id             = module.data_resources.storage_account_id
+  storage_account_name           = module.data_resources.storage_account_name
+  storage_blob_endpoint          = module.data_resources.storage_blob_endpoint
+  cosmos_account_id              = module.data_resources.cosmos_account_id
+  cosmos_account_name            = module.data_resources.cosmos_account_name
+  cosmos_account_endpoint        = module.data_resources.cosmos_account_endpoint
+  ai_search_id                   = module.data_resources.ai_search_id
+  ai_search_name                 = module.data_resources.ai_search_name
+  key_vault_id                   = module.data_resources.key_vault_id
+  key_vault_name                 = module.data_resources.key_vault_name
+  app_insights_id                = module.data_resources.app_insights_id
+  app_insights_name              = module.data_resources.app_insights_name
+  app_insights_connection_string = module.data_resources.app_insights_connection_string
+
+  foundry_users = var.foundry_users
+
+  tags = local.tags
+}
+
+module "foundry_project" {
+  source = "./modules/foundry-project"
+
+  resource_group_name = azurerm_resource_group.this.name
+  location            = var.location
+  base_name           = local.base_name
+  environment         = var.environment
+
+  foundry_account_id   = module.foundry_account.account_id
+  foundry_account_name = module.foundry_account.account_name
+
+  storage_account_id   = module.data_resources.storage_account_id
+  storage_account_name = module.data_resources.storage_account_name
+  cosmos_account_id    = module.data_resources.cosmos_account_id
+  cosmos_account_name  = module.data_resources.cosmos_account_name
+  ai_search_id         = module.data_resources.ai_search_id
+  ai_search_name       = module.data_resources.ai_search_name
+
+  tags = local.tags
+
+  # Account capability host must exist before the project capability host can
+  # be created (it's an explicit prerequisite per Microsoft docs).
+  depends_on = [
+    module.foundry_account,
+  ]
+}

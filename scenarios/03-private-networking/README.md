@@ -1,4 +1,4 @@
-# Scenario 02 — Foundry with private networking
+# Scenario 03 — Foundry with private networking
 
 Network-isolated Foundry deployment built around the Standard Agent: VNet-injected Foundry account, private endpoints for every dependency, AAD-only data plane on Cosmos / Storage / Search, and a project-level capability host wiring it all together.
 
@@ -29,7 +29,7 @@ Foundry API: `2026-03-01`. Capability host API: `2025-04-01-preview` (no GA path
 ## Module layout
 
 ```text
-scenarios/02-private-networking/
+scenarios/03-private-networking/
 ├── providers.tf, variables.tf, main.tf, outputs.tf, terraform.auto.tfvars
 └── modules/
     ├── network/             # VNet + subnets + 6 DNS zones + VNet links
@@ -47,18 +47,18 @@ Resources follow `<abbr>-<workload>-<scenario>-<env>-<region>-<instance>`. With 
 
 | Resource | Name |
 |---|---|
-| Resource group | `rg-foundry-s02-dev-wus3-001` |
-| VNet | `vnet-foundry-s02-dev-wus3-001` |
-| Foundry account | `cog-foundry-s02-dev-wus3-001` |
-| Foundry project | `proj-foundry-s02-dev-wus3-001` |
-| Cosmos DB | `cosno-foundry-s02-dev-wus3-001` |
-| AI Search | `srch-foundry-s02-dev-wus3-001` |
-| Storage account | `stfoundrys02devwus3001` (flattened — `st` + base name minus hyphens, ≤24 chars) |
-| Private endpoints | `pep-{blob,cosmos,search,foundry}-foundry-s02-dev-wus3-001` |
+| Resource group | `rg-foundry-s03-dev-wus3-001` |
+| VNet | `vnet-foundry-s03-dev-wus3-001` |
+| Foundry account | `cog-foundry-s03-dev-wus3-001` |
+| Foundry project | `proj-foundry-s03-dev-wus3-001` |
+| Cosmos DB | `cosno-foundry-s03-dev-wus3-001` |
+| AI Search | `srch-foundry-s03-dev-wus3-001` |
+| Storage account | `stfoundrys03devwus3001` (flattened — `st` + base name minus hyphens, ≤24 chars) |
+| Private endpoints | `pep-{blob,cosmos,search,foundry}-foundry-s03-dev-wus3-001` |
 
 ## State
 
-`cmhtfstatesa` (RG `RG-TF`), container `tfstate`, key `foundry-examples/02-private-networking.tfstate`. AAD auth, shared keys disabled.
+`cmhtfstatesa` (RG `RG-TF`), container `tfstate`, key `foundry-examples/03-private-networking.tfstate`. AAD auth, shared keys disabled.
 
 ## Destroy notes
 
@@ -82,9 +82,9 @@ terraform apply
 
 Triggered by the repo-level [`deploy.yml`](../../.github/workflows/deploy.yml) workflow:
 
-- PR touching `scenarios/02-private-networking/**` → plan, posted as PR comment.
-- Merge to `main` touching the same path → apply, gated by the `scenario-02-dev` GitHub Environment.
-- Manual `workflow_dispatch` → tick the **scenario_02** checkbox (combine with `scenario_01` for both) and choose plan or apply.
+- PR touching `scenarios/03-private-networking/**` → plan, posted as PR comment.
+- Merge to `main` touching the same path → apply, gated by the `scenario-03-dev` GitHub Environment.
+- Manual `workflow_dispatch` → tick the **scenario_03** checkbox (combine with `scenario_01` / `scenario_02` for combinations) and choose plan or apply.
 
 ## Post-deploy
 

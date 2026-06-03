@@ -31,8 +31,8 @@ resource "azapi_resource" "project" {
 
   body = {
     properties = {
-      displayName = "Scenario 02 Private Foundry (${var.environment})"
-      description = "Network-isolated Foundry project with VNet-injected Standard Agent and BYO Cosmos/Storage/Search."
+      displayName = "Scenario 02 External Services (${var.environment})"
+      description = "Public-network Foundry project with BYO Storage / Cosmos / Search / Key Vault / Application Insights wired as account-scoped connections."
     }
   }
 
@@ -56,75 +56,9 @@ resource "time_sleep" "wait_project_identity" {
   create_duration = "30s"
 }
 
-# Project connections ----------------------------------------------------------
-
-resource "azapi_resource" "conn_cosmos" {
-  type      = "Microsoft.CognitiveServices/accounts/projects/connections@2026-03-01"
-  parent_id = azapi_resource.project.id
-  name      = var.cosmos_account_name
-
-  body = {
-    properties = {
-      category = "CosmosDb"
-      target   = var.cosmos_account_endpoint
-      authType = "AAD"
-      metadata = {
-        ApiType    = "Azure"
-        ResourceId = var.cosmos_account_id
-        location   = var.location
-      }
-    }
-  }
-
-  schema_validation_enabled = false
-}
-
-resource "azapi_resource" "conn_storage" {
-  type      = "Microsoft.CognitiveServices/accounts/projects/connections@2026-03-01"
-  parent_id = azapi_resource.project.id
-  name      = var.storage_account_name
-
-  body = {
-    properties = {
-      category = "AzureStorageAccount"
-      target   = var.storage_blob_endpoint
-      authType = "AAD"
-      metadata = {
-        ApiType    = "Azure"
-        ResourceId = var.storage_account_id
-        location   = var.location
-      }
-    }
-  }
-
-  schema_validation_enabled = false
-}
-
-resource "azapi_resource" "conn_search" {
-  type      = "Microsoft.CognitiveServices/accounts/projects/connections@2026-03-01"
-  parent_id = azapi_resource.project.id
-  name      = var.ai_search_name
-
-  body = {
-    properties = {
-      category = "CognitiveSearch"
-      target   = "https://${var.ai_search_name}.search.windows.net"
-      authType = "AAD"
-      metadata = {
-        ApiType    = "Azure"
-        ApiVersion = "2025-05-01-preview"
-        ResourceId = var.ai_search_id
-        location   = var.location
-      }
-    }
-  }
-
-  schema_validation_enabled = false
-}
-
 # Pre-capability-host role assignments -----------------------------------------
-# These give the project SMI control plane access needed to provision the
-# data resources the capability host will create (containers, role defs, etc).
+# Give the project SMI control plane access on the BYO resources so the
+# capability host can provision containers, role defs, etc.
 
 resource "azurerm_role_assignment" "cosmos_operator" {
   name                 = uuidv5("dns", "${local.project_name}-${local.project_principal_id}-cosmos-operator")
@@ -173,9 +107,10 @@ resource "time_sleep" "wait_rbac" {
   ]
 }
 
-# Capability host --------------------------------------------------------------
+# Project capability host ------------------------------------------------------
+# References the connection NAMES that the project inherits from the account.
 
-resource "azapi_resource" "capability_host" {
+resource "azapi_resource" "project_capability_host" {
   type      = "Microsoft.CognitiveServices/accounts/projects/capabilityHosts@2025-04-01-preview"
   parent_id = azapi_resource.project.id
   name      = "caphost-${var.base_name}"
@@ -192,15 +127,12 @@ resource "azapi_resource" "capability_host" {
   schema_validation_enabled = false
 
   depends_on = [
-    azapi_resource.conn_cosmos,
-    azapi_resource.conn_storage,
-    azapi_resource.conn_search,
     time_sleep.wait_rbac,
   ]
 }
 
 # Post-capability-host role assignments ----------------------------------------
-# These target containers/scopes that the capability host provisions.
+# Target containers / scopes that the capability host provisions.
 
 resource "azurerm_cosmosdb_sql_role_assignment" "project_data_contributor" {
   name                = uuidv5("dns", "${local.project_name}-${local.project_principal_id}-cosmos-sql-data-contributor")
@@ -210,7 +142,7 @@ resource "azurerm_cosmosdb_sql_role_assignment" "project_data_contributor" {
   role_definition_id  = "${var.cosmos_account_id}/sqlRoleDefinitions/00000000-0000-0000-0000-000000000002"
   principal_id        = local.project_principal_id
 
-  depends_on = [azapi_resource.capability_host]
+  depends_on = [azapi_resource.project_capability_host]
 }
 
 resource "azurerm_role_assignment" "storage_blob_data_owner_scoped" {
@@ -232,5 +164,5 @@ resource "azurerm_role_assignment" "storage_blob_data_owner_scoped" {
   )
   EOT
 
-  depends_on = [azapi_resource.capability_host]
+  depends_on = [azapi_resource.project_capability_host]
 }

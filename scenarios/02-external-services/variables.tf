@@ -1,5 +1,5 @@
 variable "location" {
-  description = "Azure region for the deployment. Must support Foundry Standard Agent VNet injection."
+  description = "Azure region for the deployment. westus3 has the broadest model + capacity availability."
   type        = string
   default     = "westus3"
 }
@@ -37,26 +37,6 @@ variable "tags" {
   description = "Additional tags merged onto the default tag set applied to every resource."
   type        = map(string)
   default     = {}
-}
-
-# Networking
-
-variable "vnet_address_space" {
-  description = "CIDR block for the scenario VNet."
-  type        = string
-  default     = "192.168.0.0/16"
-}
-
-variable "agent_subnet_prefix" {
-  description = "CIDR for the agent (Microsoft.App-delegated) subnet that hosts Standard Agent compute."
-  type        = string
-  default     = "192.168.0.0/24"
-}
-
-variable "private_endpoint_subnet_prefix" {
-  description = "CIDR for the subnet that hosts the private endpoints for Foundry/Cosmos/Storage/Search."
-  type        = string
-  default     = "192.168.1.0/24"
 }
 
 # Model deployments
