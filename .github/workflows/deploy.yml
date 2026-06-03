@@ -17,7 +17,11 @@ on:
         type: boolean
         default: false
       scenario_02:
-        description: 'Scenario 02 — private networking'
+        description: 'Scenario 02 — external services (public network)'
+        type: boolean
+        default: false
+      scenario_03:
+        description: 'Scenario 03 — private networking'
         type: boolean
         default: false
       apply:
@@ -64,6 +68,7 @@ jobs:
           PUSH_AFTER: ${{ github.sha }}
           INPUT_S01: ${{ inputs.scenario_01 }}
           INPUT_S02: ${{ inputs.scenario_02 }}
+          INPUT_S03: ${{ inputs.scenario_03 }}
           INPUT_APPLY: ${{ inputs.apply }}
         run: |
           set -euo pipefail
@@ -80,7 +85,8 @@ jobs:
 
           if [[ "$EVENT" == "workflow_dispatch" ]]; then
             [[ "$INPUT_S01" == "true" ]] && folders+=("01-basic-foundry")
-            [[ "$INPUT_S02" == "true" ]] && folders+=("02-private-networking")
+            [[ "$INPUT_S02" == "true" ]] && folders+=("02-external-services")
+            [[ "$INPUT_S03" == "true" ]] && folders+=("03-private-networking")
             should_apply="${INPUT_APPLY}"
           else
             if [[ "$EVENT" == "pull_request" ]]; then
