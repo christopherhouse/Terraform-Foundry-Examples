@@ -93,7 +93,7 @@ resource "azapi_resource" "ai_search" {
         }
       }
 
-      publicNetworkAccess = "disabled"
+      publicNetworkAccess = "Disabled"
       networkRuleSet = {
         bypass = "None"
       }
