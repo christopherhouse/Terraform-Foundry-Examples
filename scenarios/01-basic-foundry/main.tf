@@ -36,88 +36,68 @@ resource "azurerm_resource_group" "this" {
   tags     = local.tags
 }
 
-resource "azapi_resource" "foundry_account" {
-  type      = "Microsoft.CognitiveServices/accounts@2026-03-01"
-  parent_id = azurerm_resource_group.this.id
-  name      = local.account_name
-  location  = var.location
+resource "azurerm_cognitive_account" "this" {
+  name                = local.account_name
+  resource_group_name = azurerm_resource_group.this.name
+  location            = var.location
+
+  kind     = "AIServices"
+  sku_name = "S0"
+
+  custom_subdomain_name         = local.account_name
+  local_auth_enabled            = false
+  public_network_access_enabled = true
+  project_management_enabled    = true
 
   identity {
     type = "SystemAssigned"
   }
 
-  body = {
-    kind = "AIServices"
-    sku = {
-      name = "S0"
-    }
-    properties = {
-      allowProjectManagement = true
-      customSubDomainName    = local.account_name
-      disableLocalAuth       = true
-      publicNetworkAccess    = "Enabled"
-    }
-  }
-
   tags = local.tags
-
-  schema_validation_enabled = false
-  response_export_values    = ["properties.endpoint", "properties.endpoints"]
 }
 
-resource "azapi_resource" "foundry_project" {
-  type      = "Microsoft.CognitiveServices/accounts/projects@2026-03-01"
-  parent_id = azapi_resource.foundry_account.id
-  name      = local.project_name
-  location  = var.location
+resource "azurerm_cognitive_account_project" "this" {
+  name                 = local.project_name
+  cognitive_account_id = azurerm_cognitive_account.this.id
+  location             = var.location
+
+  display_name = "Scenario 01 Basic Foundry (${var.environment})"
+  description  = "Basic Foundry project deployed by Terraform-Foundry-Examples scenario 01."
 
   identity {
     type = "SystemAssigned"
   }
 
-  body = {
-    properties = {
-      displayName = "Scenario 01 Basic Foundry (${var.environment})"
-      description = "Basic Foundry project deployed by Terraform-Foundry-Examples scenario 01."
-    }
-  }
-
   tags = local.tags
-
-  schema_validation_enabled = false
-  response_export_values    = ["properties"]
 }
 
 resource "azurerm_role_assignment" "foundry_user" {
   for_each = { for u in var.foundry_users : u.object_id => u }
 
-  scope              = azapi_resource.foundry_account.id
+  scope              = azurerm_cognitive_account.this.id
   role_definition_id = "/providers/Microsoft.Authorization/roleDefinitions/${local.foundry_user_role_id}"
   principal_id       = each.value.object_id
   principal_type     = each.value.principal_type
 }
 
-resource "azapi_resource" "gpt4o" {
-  type      = "Microsoft.CognitiveServices/accounts/deployments@2026-03-01"
-  parent_id = azapi_resource.foundry_account.id
-  name      = "gpt-4o"
+resource "azurerm_cognitive_deployment" "gpt4o" {
+  name                 = "gpt-4o"
+  cognitive_account_id = azurerm_cognitive_account.this.id
 
-  body = {
-    sku = {
-      name     = var.gpt4o_sku_name
-      capacity = var.gpt4o_capacity
-    }
-    properties = {
-      model = merge(
-        {
-          format = "OpenAI"
-          name   = "gpt-4o"
-        },
-        var.gpt4o_model_version == null ? {} : { version = var.gpt4o_model_version }
-      )
-    }
+  model {
+    format  = "OpenAI"
+    name    = "gpt-4o"
+    version = var.gpt4o_model_version
   }
 
-  schema_validation_enabled = false
-  response_export_values    = ["properties.model", "sku"]
+  sku {
+    name     = var.gpt4o_sku_name
+    capacity = var.gpt4o_capacity
+  }
+
+  # The variable documents null as "use the region default" — let Azure pick
+  # and ignore the value it records back into state.
+  lifecycle {
+    ignore_changes = [model[0].version]
+  }
 }

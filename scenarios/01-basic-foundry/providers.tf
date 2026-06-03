@@ -6,6 +6,9 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 4.0"
     }
+    # azapi is retained only for the one-shot `removed` blocks in
+    # migrations.tf. Drop this (and the provider block below) once the
+    # azapi → azurerm state migration has applied.
     azapi = {
       source  = "Azure/azapi"
       version = "~> 2.0"
