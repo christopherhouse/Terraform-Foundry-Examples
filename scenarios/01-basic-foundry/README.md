@@ -11,7 +11,7 @@ The smallest possible Foundry footprint, used to demonstrate end-to-end CI/CD au
 | Foundry project | `Microsoft.CognitiveServices/accounts/projects` | A single project under the account. |
 | gpt-4o deployment | `Microsoft.CognitiveServices/accounts/deployments` | `gpt-4o`, `Standard` SKU, capacity `50` (= 50K TPM). Tunable via `gpt4o_*` vars. |
 
-API version: `2026-03-01` via the `azapi` provider.
+API version: `2026-03-01` via the `azurerm` provider (`azurerm_cognitive_account`, `azurerm_cognitive_account_project`, `azurerm_cognitive_deployment`).
 
 ## Naming (Microsoft CAF)
 
@@ -44,7 +44,7 @@ terraform plan
 terraform apply
 ```
 
-The provider blocks expect `ARM_USE_OIDC` plus the OIDC token env vars in CI; locally, `az login` is enough because azurerm and azapi fall back to Azure CLI auth when OIDC env vars aren't set.
+The provider block expects `ARM_USE_OIDC` plus the OIDC token env vars in CI; locally, `az login` is enough because azurerm falls back to Azure CLI auth when OIDC env vars aren't set.
 
 ## CI
 

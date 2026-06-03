@@ -5,32 +5,32 @@ output "resource_group_name" {
 
 output "foundry_account_name" {
   description = "Name of the Foundry (Microsoft.CognitiveServices AIServices) account."
-  value       = azapi_resource.foundry_account.name
+  value       = azurerm_cognitive_account.this.name
 }
 
 output "foundry_account_id" {
   description = "Resource ID of the Foundry account."
-  value       = azapi_resource.foundry_account.id
+  value       = azurerm_cognitive_account.this.id
 }
 
 output "foundry_account_endpoint" {
   description = "Primary endpoint of the Foundry account."
-  value       = try(azapi_resource.foundry_account.output.properties.endpoint, null)
+  value       = azurerm_cognitive_account.this.endpoint
 }
 
 output "foundry_project_name" {
   description = "Name of the Foundry project."
-  value       = azapi_resource.foundry_project.name
+  value       = azurerm_cognitive_account_project.this.name
 }
 
 output "foundry_project_id" {
   description = "Resource ID of the Foundry project."
-  value       = azapi_resource.foundry_project.id
+  value       = azurerm_cognitive_account_project.this.id
 }
 
 output "gpt4o_deployment_name" {
   description = "Name of the gpt-4o model deployment on the Foundry account."
-  value       = azapi_resource.gpt4o.name
+  value       = azurerm_cognitive_deployment.gpt4o.name
 }
 
 output "gpt4o_deployment_capacity" {
