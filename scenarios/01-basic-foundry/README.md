@@ -122,11 +122,13 @@ With the defaults you get:
 
 | | |
 |---|---|
-| Storage account | `cmhtfstatesa` (RG `RG-TF`) |
+| Storage account | _your state SA_ (see [`docs/bootstrap.md`](../../docs/bootstrap.md)) |
 | Container | `tfstate` |
 | Key | `foundry-examples/01-basic-foundry.tfstate` |
 | Auth | AAD only (shared keys disabled on the SA) |
 | CI principal RBAC | **Storage Blob Data Contributor** on the SA |
+
+The concrete storage account name / resource group / region are environment-specific — point this at whatever SA you stood up when you bootstrapped your fork.
 
 ---
 
