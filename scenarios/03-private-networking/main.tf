@@ -111,10 +111,10 @@ module "private_endpoints" {
 module "foundry_project" {
   source = "./modules/foundry-project"
 
-  resource_group_name = azurerm_resource_group.this.name
-  location            = var.location
-  base_name           = local.base_name
-  environment         = var.environment
+  cosmos_resource_group_name = azurerm_resource_group.this.name
+  location                   = var.location
+  base_name                  = local.base_name
+  environment                = var.environment
 
   foundry_account_id   = module.foundry_account.account_id
   foundry_account_name = module.foundry_account.account_name

@@ -1,5 +1,5 @@
-variable "resource_group_name" {
-  description = "Resource group for the data plane role assignments."
+variable "cosmos_resource_group_name" {
+  description = "Resource group that contains the Cosmos DB account. Used only by azurerm_cosmosdb_sql_role_assignment, which requires the account's RG (unlike azurerm_role_assignment, which works off scope alone). In a single-RG scenario this is the same RG as the project; in a multi-RG scenario it must point at the data RG."
   type        = string
 }
 

@@ -163,12 +163,14 @@ module "foundry_project" {
   source = "./modules/foundry-project"
 
   # The project is an ARM child of the account, so it inherits rg-ai
-  # implicitly via parent_id. resource_group_name here is only used for
-  # data-plane role-assignment scopes that need an RG context.
-  resource_group_name = azurerm_resource_group.ai.name
-  location            = var.location
-  base_name           = local.base_name
-  environment         = var.environment
+  # implicitly via parent_id. The only RG name the module still needs is
+  # the Cosmos account's RG (rg-data here), because
+  # azurerm_cosmosdb_sql_role_assignment looks up the account by
+  # (RG name, account name) rather than by scope.
+  cosmos_resource_group_name = azurerm_resource_group.data.name
+  location                   = var.location
+  base_name                  = local.base_name
+  environment                = var.environment
 
   foundry_account_id   = module.foundry_account.account_id
   foundry_account_name = module.foundry_account.account_name
