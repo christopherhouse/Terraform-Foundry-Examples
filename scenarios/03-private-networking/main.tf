@@ -54,6 +54,16 @@ module "data_resources" {
   tags                = local.tags
 }
 
+module "observability" {
+  source = "./modules/observability"
+
+  resource_group_name = azurerm_resource_group.this.name
+  resource_group_id   = azurerm_resource_group.this.id
+  location            = var.location
+  base_name           = local.base_name
+  tags                = local.tags
+}
+
 module "foundry_account" {
   source = "./modules/foundry-account"
 
@@ -117,6 +127,10 @@ module "foundry_project" {
   cosmos_account_endpoint = module.data_resources.cosmos_account_endpoint
   ai_search_id            = module.data_resources.ai_search_id
   ai_search_name          = module.data_resources.ai_search_name
+
+  app_insights_id                = module.observability.app_insights_id
+  app_insights_name              = module.observability.app_insights_name
+  app_insights_connection_string = module.observability.app_insights_connection_string
 
   tags = local.tags
 

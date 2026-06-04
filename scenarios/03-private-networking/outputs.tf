@@ -52,3 +52,13 @@ output "ai_search_name" {
   description = "Name of the agent vector store AI Search service."
   value       = module.data_resources.ai_search_name
 }
+
+output "log_analytics_workspace_name" {
+  description = "Name of the Log Analytics workspace backing App Insights."
+  value       = module.observability.log_analytics_workspace_name
+}
+
+output "app_insights_name" {
+  description = "Name of the App Insights component connected to the Foundry project."
+  value       = module.observability.app_insights_name
+}

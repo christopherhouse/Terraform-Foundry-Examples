@@ -122,6 +122,32 @@ resource "azapi_resource" "conn_search" {
   schema_validation_enabled = false
 }
 
+# App Insights is connected by API key (the connection string) rather than AAD —
+# agents emit telemetry to the ingestion endpoint using this credential, so
+# unlike the other three connections there's no project SMI RBAC needed.
+resource "azapi_resource" "conn_app_insights" {
+  type      = "Microsoft.CognitiveServices/accounts/projects/connections@2026-03-01"
+  parent_id = azapi_resource.project.id
+  name      = var.app_insights_name
+
+  body = {
+    properties = {
+      category = "AppInsights"
+      target   = var.app_insights_id
+      authType = "ApiKey"
+      credentials = {
+        key = var.app_insights_connection_string
+      }
+      metadata = {
+        ApiType    = "Azure"
+        ResourceId = var.app_insights_id
+      }
+    }
+  }
+
+  schema_validation_enabled = false
+}
+
 # Pre-capability-host role assignments -----------------------------------------
 # These give the project SMI control plane access needed to provision the
 # data resources the capability host will create (containers, role defs, etc).
@@ -195,6 +221,7 @@ resource "azapi_resource" "capability_host" {
     azapi_resource.conn_cosmos,
     azapi_resource.conn_storage,
     azapi_resource.conn_search,
+    azapi_resource.conn_app_insights,
     time_sleep.wait_rbac,
   ]
 }
