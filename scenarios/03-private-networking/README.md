@@ -18,11 +18,13 @@ Modeled on Microsoft's [`15a-private-network-standard-agent-setup`](https://gith
 | 💾 Storage account | `azurerm_storage_account` | StorageV2 / ZRS / TLS 1.2 / shared keys off / `public_network_access_enabled = false` / Deny default rules. |
 | 🪐 Cosmos DB | `azurerm_cosmosdb_account` | NoSQL, Session consistency, local auth disabled, `public_network_access_enabled = false`. |
 | 🔎 AI Search | `azapi` `Microsoft.Search/searchServices` | Standard SKU, system identity, `publicNetworkAccess = Disabled`, `networkRuleSet.bypass = None`. |
+| 📊 Log Analytics workspace | `azurerm_log_analytics_workspace` | `PerGB2018`, 30-day retention. Backs App Insights as the workspace data store. |
+| 📈 Application Insights | `azapi` `Microsoft.Insights/components` | Workspace-based (LAW above), `web` application type. `azapi` because `azurerm_application_insights` v4 trips a `BillingFeatures` 404 in `westus3`. |
 | 🧠 Foundry account | `azapi` `Microsoft.CognitiveServices/accounts` | `AIServices`, `allowProjectManagement = true`, `disableLocalAuth = true`, `publicNetworkAccess = Disabled`, `networkAcls.defaultAction = Deny`, `networkInjections` pointing at `snet-agent`. |
 | 🤖 `gpt-4o` deployment | `azapi` `…/deployments` | Default `GlobalStandard`, capacity `50`. Knobs in `variables.tf`. |
 | 🤖 `text-embedding-3-large` deployment | `azapi` `…/deployments` | Default `Standard`, capacity `50`. Knobs in `variables.tf`. |
 | 🗂️ Foundry project | `azapi` `…/accounts/projects` | Single project, own SMI, display name + description. |
-| 🔗 Project-scoped connections | `azapi` `…/accounts/projects/connections` | One each for Cosmos / Storage / Search. All `authType = AAD`. |
+| 🔗 Project-scoped connections | `azapi` `…/accounts/projects/connections` | Four total: Cosmos / Storage / Search (all `authType = AAD`) + App Insights (`authType = ApiKey`, connection-string credential). |
 | 🏠 Project capability host | `azapi` `…/accounts/projects/capabilityHosts` | Names the three connections as `vectorStoreConnections` / `storageConnections` / `threadStorageConnections`. |
 | 🚪 4× private endpoints | `azurerm_private_endpoint` | One each for Storage blob, Cosmos Sql, AI Search, and the Foundry account (with **three** DNS zones — cognitiveservices, services.ai.azure.com, openai.azure.com). |
 | 🔐 Foundry User RBAC | `azurerm_role_assignment` | Grants `var.foundry_users` data-plane access on the account. |
@@ -63,15 +65,23 @@ flowchart TB
       SEARCH["🔎 AI Search"]
     end
 
+    subgraph OBS["📊 Observability"]
+      direction LR
+      LAW["📊 Log Analytics workspace"]
+      APPI["📈 App Insights<br/>(workspace-based)"]
+      APPI -. logs/metrics .-> LAW
+    end
+
     subgraph ACC["🧠 Foundry Account (AIServices)<br/>publicNetworkAccess = Disabled<br/>networkInjections → snet-agent"]
       direction TB
       subgraph PROJ["🗂️ Foundry Project"]
         CHP["🏠 Project capability host"]
-        subgraph CONNS["🔗 Project-scoped connections (AAD)"]
+        subgraph CONNS["🔗 Project-scoped connections"]
           direction LR
-          CCOS["CosmosDb"]
-          CST["AzureStorageAccount"]
-          CSRCH["CognitiveSearch"]
+          CCOS["CosmosDb (AAD)"]
+          CST["AzureStorageAccount (AAD)"]
+          CSRCH["CognitiveSearch (AAD)"]
+          CAPPI["AppInsights (ApiKey)"]
         end
       end
     end
@@ -97,6 +107,7 @@ flowchart TB
     CCOS -. target .-> COSMOS
     CST  -. target .-> ST
     CSRCH -. target .-> SEARCH
+    CAPPI -. target .-> APPI
   end
 
   USERS(["👥 Foundry users<br/>(via PE / hub network)"]) -- "Foundry User role" --> ACC
@@ -106,6 +117,7 @@ flowchart TB
   classDef acc fill:#2d5a3d,stroke:#5fb878,color:#fff
   classDef proj fill:#5a3d2d,stroke:#d39a4e,color:#fff
   classDef data fill:#4a2d5a,stroke:#a878d3,color:#fff
+  classDef obs fill:#2d4a5a,stroke:#5fa1d3,color:#fff
   classDef conn fill:#3d3d3d,stroke:#888,color:#fff
   classDef pe fill:#5a2d3d,stroke:#d3788e,color:#fff
   class RG rg
@@ -113,7 +125,8 @@ flowchart TB
   class ACC acc
   class PROJ,CHP proj
   class DATA,ST,COSMOS,SEARCH data
-  class CONNS,CST,CCOS,CSRCH conn
+  class OBS,LAW,APPI obs
+  class CONNS,CST,CCOS,CSRCH,CAPPI conn
   class PEB,PEC,PES,PEF pe
 ```
 
@@ -155,8 +168,9 @@ System-assigned was chosen for the same reason as scenarios 01 and 02: lifecycle
 | `authType` | Who authenticates to the target | Where the credential lives |
 |---|---|---|
 | `AAD` | The **caller's** AAD identity — for agent runtime calls, that's the **project SMI**. | Nowhere — Entra token at call time. |
+| `ApiKey` | Whoever holds the key. For App Insights that's the agent runtime, which uses the connection string to push telemetry. | In `credentials.key` on the connection, set from the App Insights `ConnectionString` output at apply time. |
 
-That's the whole table for this scenario. All three connections (Cosmos / Storage / Search) are `AAD`, which is why — unlike scenario 02 — there's no BYO Key Vault and no `Key Vault Secrets Officer` role on the account SMI. No `ApiKey` connection means no credential to write into a vault.
+Three of the four project connections (Cosmos / Storage / Search) are `AAD`. The fourth — **App Insights** — uses `authType = ApiKey` with the App Insights connection string as the credential, because App Insights ingestion doesn't have an AAD path. There's still no BYO Key Vault here (unlike scenario 02): the App Insights connection string is passed directly into the connection's `credentials.key` at apply time and stored by the Foundry control plane, not in a customer-owned vault.
 
 ### Required RBAC for each Foundry MI
 
@@ -286,11 +300,12 @@ scenarios/03-private-networking/
 └── modules/
     ├── network/             # VNet + 2 subnets + 6 DNS zones + VNet links
     ├── data-resources/      # Storage + Cosmos + AI Search (all public access off)
+    ├── observability/       # Log Analytics workspace + App Insights (azapi)
     ├── foundry-account/     # Account (networkInjections) + 2 model deployments
     │                        # + 300s wait + 900s destroy cooldown + purge
     ├── private-endpoints/   # 4 PEs (blob / cosmos / search / foundry) + DNS zone groups
-    └── foundry-project/     # Project + 3 AAD connections + pre/post-host RBAC
-                             # + project capability host
+    └── foundry-project/     # Project + 3 AAD connections + 1 ApiKey connection (App Insights)
+                             # + pre/post-host RBAC + project capability host
 ```
 
 Module composition lives in [`main.tf`](./main.tf). Each child module has its own `variables.tf` / `main.tf` / `outputs.tf` and declares its own `required_providers` block. The `foundry_project` module is `depends_on = [module.private_endpoints]` so the project is only created once inbound networking is in place.
@@ -320,6 +335,8 @@ With the defaults you get:
 🪐  cosno-foundry-s03-dev-wus3-001
 🔎  srch-foundry-s03-dev-wus3-001
 💾  stfoundrys03devwus3001         (flattened — st + base name minus hyphens, ≤24 chars)
+📊  log-foundry-s03-dev-wus3-001
+📈  appi-foundry-s03-dev-wus3-001
 🚪  pep-{blob,cosmos,search,foundry}-foundry-s03-dev-wus3-001
 🏠  caphost-foundry-s03-dev-wus3-001
 ```
@@ -395,6 +412,8 @@ The `scenario-03-dev` GitHub Environment holds the approval gate for applies.
 | `storage_account_name` | BYO Storage (agent data) |
 | `cosmos_account_name` | BYO Cosmos (agent threads) |
 | `ai_search_name` | BYO AI Search (vector store) |
+| `log_analytics_workspace_name` | LAW backing App Insights |
+| `app_insights_name` | App Insights wired in as a project connection |
 
 ---
 
