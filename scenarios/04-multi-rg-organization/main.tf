@@ -18,6 +18,7 @@ locals {
   rg_name_net  = "rg-net-${local.base_name}"
   rg_name_data = "rg-data-${local.base_name}"
   rg_name_ai   = "rg-ai-${local.base_name}"
+  rg_name_obs  = "rg-obs-${local.base_name}"
 
   default_tags = {
     Workload    = var.workload
@@ -34,6 +35,7 @@ locals {
 # rg-data: Storage, Cosmos, AI Search + their PEs — data platform team
 # rg-ai:   Foundry account, model deployments, project, capability host,
 #          + the account's PE — AI workload team
+# rg-obs:  Log Analytics workspace + App Insights — platform/observability team
 
 resource "azurerm_resource_group" "net" {
   name     = local.rg_name_net
@@ -51,6 +53,12 @@ resource "azurerm_resource_group" "ai" {
   name     = local.rg_name_ai
   location = var.location
   tags     = merge(local.tags, { Tier = "ai-platform" })
+}
+
+resource "azurerm_resource_group" "obs" {
+  name     = local.rg_name_obs
+  location = var.location
+  tags     = merge(local.tags, { Tier = "observability" })
 }
 
 # --- Network (rg-net) --------------------------------------------------------
@@ -77,6 +85,18 @@ module "data_resources" {
   location            = var.location
   base_name           = local.base_name
   base_name_flat      = local.base_name_flat
+  tags                = local.tags
+}
+
+# --- Observability (rg-obs) --------------------------------------------------
+
+module "observability" {
+  source = "./modules/observability"
+
+  resource_group_name = azurerm_resource_group.obs.name
+  resource_group_id   = azurerm_resource_group.obs.id
+  location            = var.location
+  base_name           = local.base_name
   tags                = local.tags
 }
 
@@ -161,6 +181,10 @@ module "foundry_project" {
   cosmos_account_endpoint = module.data_resources.cosmos_account_endpoint
   ai_search_id            = module.data_resources.ai_search_id
   ai_search_name          = module.data_resources.ai_search_name
+
+  app_insights_id                = module.observability.app_insights_id
+  app_insights_name              = module.observability.app_insights_name
+  app_insights_connection_string = module.observability.app_insights_connection_string
 
   tags = local.tags
 

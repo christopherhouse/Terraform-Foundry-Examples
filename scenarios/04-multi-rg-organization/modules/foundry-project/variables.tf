@@ -68,6 +68,22 @@ variable "ai_search_name" {
   type        = string
 }
 
+variable "app_insights_id" {
+  description = "Resource ID of the App Insights component the project connects to."
+  type        = string
+}
+
+variable "app_insights_name" {
+  description = "Name of the App Insights component (used as the connection name)."
+  type        = string
+}
+
+variable "app_insights_connection_string" {
+  description = "Connection string credential for the AppInsights project connection."
+  type        = string
+  sensitive   = true
+}
+
 variable "tags" {
   description = "Tags to apply to module-managed resources."
   type        = map(string)

@@ -1,6 +1,6 @@
 # 🧪 Scenario 04 — Multi-RG organization
 
-> Same private-networking shape as [scenario 03](../03-private-networking/README.md), but the resources are split across **three resource groups** along lifecycle and ownership boundaries — the way you'd run this in a real Azure landing zone.
+> Same private-networking shape as [scenario 03](../03-private-networking/README.md), but the resources are split across **four resource groups** along lifecycle and ownership boundaries — the way you'd run this in a real Azure landing zone.
 
 The goal here isn't to add capability; it's to demonstrate the **resource-organization refactor** Microsoft recommends in the [Cloud Adoption Framework](https://learn.microsoft.com/azure/cloud-adoption-framework/ai/ready) and the [AI platform sharing decision guidance](https://learn.microsoft.com/azure/cloud-adoption-framework/ai/platform/ai-platform-sharing-isolation-colocation). Scenario 03 collapses everything into one RG for lab simplicity; scenario 04 splits it the way teams, owners, and deploy cadences actually diverge in production.
 
@@ -13,6 +13,7 @@ The goal here isn't to add capability; it's to demonstrate the **resource-organi
 | 📦 `rg-net-…` | VNet, two subnets, **all 6 private DNS zones**, DNS-to-VNet links | Platform / network team. Long-lived; often pre-exists as part of a connectivity subscription. | DNS zones are routinely shared across many workloads. You don't want to rebuild them when an AI workload is torn down. CAF "AI Ready" treats the network as foundation, not workload. |
 | 📦 `rg-data-…` | Storage account, Cosmos DB, AI Search, **+ their private endpoints** | Data platform team. May pre-exist as true BYO. | Foundry's standard-agent BYO model is explicitly designed for these three to live anywhere — the capability host takes full ARM IDs. Backup, DR, and cost story are independent of the AI workload. |
 | 📦 `rg-ai-…` | Foundry account, model deployments, Foundry project, project capability host, **+ the account's private endpoint** | AI workload team. Per [CAF AI platform sharing](https://learn.microsoft.com/azure/cloud-adoption-framework/ai/platform/ai-platform-sharing-isolation-colocation), production default is **one Foundry per workload**. | The Foundry account *is* the AI platform instance — its own network, identity, and quota boundary. This is the RG that gets torn down or redeployed per workload. |
+| 📦 `rg-obs-…` | Log Analytics workspace, App Insights component | Platform / observability team. Long-lived; the LAW is usually shared across many workloads. | Observability is a horizontal concern. The workspace and App Insights survive workload teardown so historical telemetry isn't lost. Often shared across multiple AI workloads in the same business unit. |
 
 Private endpoints follow their **target resource** into its RG (rather than living with the VNet), which is the more common Azure pattern — easier RBAC, and the PE's auto-created DNS A-record writes into the zone in `rg-net` cross-RG without any extra wiring.
 
@@ -61,15 +62,23 @@ flowchart TB
       direction TB
       subgraph PROJ["🗂️ Foundry Project (ARM child — same RG)"]
         CHP["🏠 Project capability host"]
-        subgraph CONNS["🔗 Project-scoped connections (AAD)"]
+        subgraph CONNS["🔗 Project-scoped connections"]
           direction LR
-          CCOS["CosmosDb"]
-          CST["AzureStorageAccount"]
-          CSRCH["CognitiveSearch"]
+          CCOS["CosmosDb (AAD)"]
+          CST["AzureStorageAccount (AAD)"]
+          CSRCH["CognitiveSearch (AAD)"]
+          CAPPI["AppInsights (ApiKey)"]
         end
       end
     end
     PEF["🚪 PE: account"]
+  end
+
+  subgraph RGOBS["📦 rg-obs (platform / observability team)"]
+    direction LR
+    LAW["📊 Log Analytics workspace"]
+    APPI["📈 App Insights<br/>(workspace-based)"]
+    APPI -. logs/metrics .-> LAW
   end
 
   SNETP --- PEB & PEC & PES & PEF
@@ -88,26 +97,31 @@ flowchart TB
   CCOS -. target .-> COSMOS
   CST  -. target .-> ST
   CSRCH -. target .-> SEARCH
+  CAPPI -. "target (cross-RG)" .-> APPI
 
   classDef rgnet fill:#1a3a5c,stroke:#4ea1d3,color:#fff
   classDef rgdata fill:#4a2d5a,stroke:#a878d3,color:#fff
   classDef rgai fill:#2d5a3d,stroke:#5fb878,color:#fff
+  classDef rgobs fill:#2d4a5a,stroke:#5fa1d3,color:#fff
   classDef net fill:#2d3d5a,stroke:#5e7fb8,color:#fff
   classDef data fill:#3d2a4a,stroke:#9868c0,color:#fff
   classDef acc fill:#1f4a2f,stroke:#4ea868,color:#fff
+  classDef obs fill:#1f3a4a,stroke:#4e85a8,color:#fff
   classDef conn fill:#3d3d3d,stroke:#888,color:#fff
   classDef pe fill:#5a2d3d,stroke:#d3788e,color:#fff
   class RGNET rgnet
   class RGDATA rgdata
   class RGAI rgai
+  class RGOBS rgobs
   class VNET,SNETA,SNETP,DNS,DZB,DZC,DZS,DZCS,DZAI,DZOAI net
   class DATA,ST,COSMOS,SEARCH data
   class ACC acc
-  class PROJ,CHP,CONNS,CCOS,CST,CSRCH conn
+  class LAW,APPI obs
+  class PROJ,CHP,CONNS,CCOS,CST,CSRCH,CAPPI conn
   class PEB,PEC,PES,PEF pe
 ```
 
-Three RGs, six DNS zones, four private endpoints — same topology as scenario 03, just regrouped along lifecycle lines. The dashed "A-record (cross-RG)" arrows are the key thing to notice: each PE's `private_dns_zone_group` references a zone in `rg-net`, and Azure handles the cross-RG record write transparently.
+Four RGs, six DNS zones, four private endpoints — same topology as scenario 03, just regrouped along lifecycle lines. The dashed "A-record (cross-RG)" and "target (cross-RG)" arrows are the key thing to notice: each PE's `private_dns_zone_group` references a zone in `rg-net`, and the project's AppInsights connection references the App Insights instance in `rg-obs`. Azure handles the cross-RG references transparently.
 
 ---
 
@@ -115,11 +129,12 @@ Three RGs, six DNS zones, four private endpoints — same topology as scenario 0
 
 | | Scenario 03 | Scenario 04 |
 |---|---|---|
-| Resource groups | **1** (`rg-foundry-…`) | **3** (`rg-net-…`, `rg-data-…`, `rg-ai-…`) |
+| Resource groups | **1** (`rg-foundry-…`) | **4** (`rg-net-…`, `rg-data-…`, `rg-ai-…`, `rg-obs-…`) |
 | Private endpoints module | Single `modules/private-endpoints` with all 4 PEs | Split into `modules/data-private-endpoints` (3 PEs → `rg-data`) and `modules/foundry-private-endpoint` (1 PE → `rg-ai`) |
+| Observability module | Same `modules/observability/` (LAW + App Insights), deployed into the single scenario RG | Same module, deployed into a dedicated `rg-obs-…` |
 | `network` / `data-resources` / `foundry-account` / `foundry-project` modules | — | **Unchanged.** They already take `resource_group_name` as input. |
 | State backend key | `03-private-networking.tfstate` | `04-multi-rg-organization.tfstate` |
-| Foundry capabilities | Identical | Identical — `networkInjections`, capability host, AAD-only connections, 300s `wait_account_ready`, 900s SAL cooldown + purge. None of that changes. |
+| Foundry capabilities | Identical | Identical — `networkInjections`, capability host, AAD + ApiKey connections, 300s `wait_account_ready`, 900s SAL cooldown + purge. None of that changes. |
 
 Everything Foundry-shaped is documented in detail in the [scenario 03 README](../03-private-networking/README.md) — don't duplicate it here. This README only covers what the RG split adds.
 
@@ -131,13 +146,14 @@ Microsoft's guidance is consistent across CAF AI Ready, the AI platform sharing 
 
 > **Use resource groups for lifecycle management.** Deploy AI resources within resource groups that share a common lifecycle. Resource groups allow you to deploy, configure, and delete resources collectively. They also provide extra governance (policy), security (RBAC), and cost (budget) boundaries. — [*Governance for AI on Azure infrastructure*](https://learn.microsoft.com/azure/cloud-adoption-framework/ai/infrastructure/governance)
 
-In production, the three groupings above have **different owners and different deploy cadences**:
+In production, the four groupings above have **different owners and different deploy cadences**:
 
 - **Network** lives essentially forever. DNS zones especially: rebuilding them is expensive and disruptive because every PE in the org points at them.
 - **Data resources** in a BYO model often pre-exist the workload, may be shared across workloads, and have their own backup/DR/compliance posture.
+- **Observability** is a horizontal concern. A LAW often serves multiple workloads in a business unit, and you don't want to lose historical telemetry just because a workload got recycled.
 - **The AI workload itself** is the thing that iterates fastest. Standing up a new project, swapping models, recycling the account — all routine. You want a small, single-purpose RG for that.
 
-Collapsing them into one RG (scenario 03) means you can't tear down the workload without also taking down the network and the data plane. Splitting them (scenario 04) lets `rg-ai` be ephemeral while `rg-net` and `rg-data` outlive any single workload.
+Collapsing them into one RG (scenario 03) means you can't tear down the workload without also taking down the network, data plane, and historical telemetry. Splitting them (scenario 04) lets `rg-ai` be ephemeral while `rg-net`, `rg-data`, and `rg-obs` outlive any single workload.
 
 ---
 
@@ -165,6 +181,10 @@ It's in `rg-ai` because **the account is in `rg-ai`** and the project is an ARM 
 
 Same as scenario 03: the SAL cooldown on `snet-agent` and the soft-deleted-account purge dominate. The split-RG layout doesn't change this — the cooldown's still in `modules/foundry-account`, and `azurerm_resource_group.ai` won't finish deleting until the cooldown completes.
 
+### 📊 LAW soft-delete on teardown
+
+Log Analytics workspaces go into a 30-day soft-delete state when destroyed, so the LAW name is reserved during that window. If you redeploy the whole scenario quickly (same `base_name`), you'll hit a name conflict on the LAW. Either wait out the soft-delete, bump `var.instance`, or run `az monitor log-analytics workspace recover` between deploys. Same gotcha applies to scenario 03's LAW — it's just more visible in scenario 04 because the LAW outlives the workload by design.
+
 ---
 
 ## 🏗️ Module layout
@@ -175,13 +195,14 @@ scenarios/04-multi-rg-organization/
 └── modules/
     ├── network/                    # → rg-net   (unchanged from scenario 03)
     ├── data-resources/             # → rg-data  (unchanged)
+    ├── observability/              # → rg-obs   (unchanged — same module as scenario 03)
     ├── foundry-account/            # → rg-ai    (unchanged)
     ├── foundry-project/            # → rg-ai    (unchanged — inherited via parent_id)
     ├── data-private-endpoints/     # → rg-data  (NEW — 3 PEs for storage/cosmos/search)
     └── foundry-private-endpoint/   # → rg-ai    (NEW — 1 PE for the Foundry account)
 ```
 
-The `private-endpoints` module from scenario 03 is the only thing that got split — into two single-purpose modules so the **root [`main.tf`](./main.tf) visually shows which PEs land in which RG** without having to read the module internals.
+The `private-endpoints` module from scenario 03 is the only thing that got split — into two single-purpose modules so the **root [`main.tf`](./main.tf) visually shows which PEs land in which RG** without having to read the module internals. Every other module is reused unchanged from scenario 03; only the `resource_group_name` they're called with differs.
 
 ---
 
@@ -203,6 +224,7 @@ With the defaults you get:
 📦  rg-net-foundry-s04-dev-wus3-001
 📦  rg-data-foundry-s04-dev-wus3-001
 📦  rg-ai-foundry-s04-dev-wus3-001
+📦  rg-obs-foundry-s04-dev-wus3-001
 🌐  vnet-foundry-s04-dev-wus3-001                  (in rg-net)
 🧱  snet-agent  /  snet-pe                         (in rg-net)
 🧠  cog-foundry-s04-dev-wus3-001                   (in rg-ai)
@@ -210,12 +232,14 @@ With the defaults you get:
 🪐  cosno-foundry-s04-dev-wus3-001                 (in rg-data)
 🔎  srch-foundry-s04-dev-wus3-001                  (in rg-data)
 💾  stfoundrys04devwus3001                         (in rg-data — flattened, ≤24 chars)
+📊  log-foundry-s04-dev-wus3-001                   (in rg-obs)
+📈  appi-foundry-s04-dev-wus3-001                  (in rg-obs)
 🚪  pep-{blob,cosmos,search}-foundry-s04-dev-wus3-001  (in rg-data)
 🚪  pep-foundry-foundry-s04-dev-wus3-001           (in rg-ai)
 🏠  caphost-foundry-s04-dev-wus3-001               (in rg-ai, child of project)
 ```
 
-Each RG gets a `Tier` tag (`network`, `data`, `ai-platform`) on top of the standard CAF tag set, so policy and cost reports can group by tier without parsing names.
+Each RG gets a `Tier` tag (`network`, `data`, `ai-platform`, `observability`) on top of the standard CAF tag set, so policy and cost reports can group by tier without parsing names.
 
 ---
 
@@ -229,7 +253,7 @@ Each RG gets a `Tier` tag (`network`, `data`, `ai-platform`) on top of the stand
 | Auth | AAD only (shared keys disabled on the SA) |
 | CI principal RBAC | **Storage Blob Data Contributor** on the SA |
 
-One state file holds all three RGs. In a real org with the split team ownership above, you'd split state per team too — but that's a separable refactor (and a different scenario).
+One state file holds all four RGs. In a real org with the split team ownership above, you'd split state per team too — but that's a separable refactor (and a different scenario).
 
 ---
 
@@ -265,16 +289,17 @@ flowchart LR
 
 | Output | What it is |
 |---|---|
-| `resource_group_name_net` / `_data` / `_ai` | The three RGs |
+| `resource_group_name_net` / `_data` / `_ai` / `_obs` | The four RGs |
 | `vnet_id` / `agent_subnet_id` / `private_endpoint_subnet_id` | Network surface (in rg-net) |
 | `foundry_account_name` / `_id` | The AIServices account (in rg-ai) |
 | `foundry_project_name` / `_id` | The single project (child of the account, in rg-ai) |
 | `storage_account_name` / `cosmos_account_name` / `ai_search_name` | BYO data resources (in rg-data) |
+| `log_analytics_workspace_name` / `app_insights_name` | Observability (in rg-obs) |
 
 ---
 
 ## 👉 Next steps
 
 - For everything Foundry-shaped (identity model, RBAC table, `networkInjections`, `time_sleep`s, destroy quirks), read the **[scenario 03 README](../03-private-networking/README.md)**. It applies verbatim here.
-- Try `terraform destroy -target=azurerm_resource_group.ai` (after destroying its contents in order) to model "tear down the AI workload, keep the network and data plane" — that's the operational story this layout enables.
+- Try `terraform destroy -target=azurerm_resource_group.ai` (after destroying its contents in order) to model "tear down the AI workload, keep the network, data plane, and observability history" — that's the operational story this layout enables.
 - For a production-grade split you'd typically go further: separate state files per RG (per team), per-team scoped RBAC, and possibly per-team subscriptions. This scenario stops at the RG boundary to keep it readable as a single Terraform configuration.

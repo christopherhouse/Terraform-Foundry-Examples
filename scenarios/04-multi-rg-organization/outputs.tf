@@ -13,6 +13,11 @@ output "resource_group_name_ai" {
   value       = azurerm_resource_group.ai.name
 }
 
+output "resource_group_name_obs" {
+  description = "Name of the observability RG (Log Analytics workspace, App Insights)."
+  value       = azurerm_resource_group.obs.name
+}
+
 output "vnet_id" {
   description = "Resource ID of the scenario VNet (in rg-net)."
   value       = module.network.vnet_id
@@ -61,4 +66,14 @@ output "cosmos_account_name" {
 output "ai_search_name" {
   description = "Name of the agent vector store AI Search service (in rg-data)."
   value       = module.data_resources.ai_search_name
+}
+
+output "log_analytics_workspace_name" {
+  description = "Name of the Log Analytics workspace (in rg-obs)."
+  value       = module.observability.log_analytics_workspace_name
+}
+
+output "app_insights_name" {
+  description = "Name of the App Insights component (in rg-obs)."
+  value       = module.observability.app_insights_name
 }
