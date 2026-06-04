@@ -24,16 +24,16 @@ Foundry API version: `2026-03-01` (via the `azurerm` provider's `cognitive_*` re
 
 ```mermaid
 flowchart TB
-  subgraph RG["📦 rg-foundry-s01-dev-eus2-001"]
+  subgraph RG["📦 Resource Group"]
     direction TB
-    subgraph ACC["🧠 Foundry Account (AIServices)<br/>cog-foundry-s01-dev-eus2-001<br/>localAuth: off · publicNetwork: on · SMI: ✔"]
+    subgraph ACC["🧠 Foundry Account (AIServices)"]
       direction TB
-      DEP["🤖 Deployment: gpt-4o<br/>Standard · 50K TPM"]
-      PROJ["🗂️ Project<br/>proj-foundry-s01-dev-eus2-001<br/>SMI: ✔"]
+      PROJ["🗂️ Foundry Project"]
+      DEP["🤖 gpt-4o Deployment"]
     end
   end
 
-  USERS(["👥 var.foundry_users"]) -- "Foundry User<br/>(data plane)" --> ACC
+  USERS(["👥 Foundry users"]) -- "Foundry User role" --> ACC
 
   classDef rg fill:#1a3a5c,stroke:#4ea1d3,color:#fff
   classDef acc fill:#2d5a3d,stroke:#5fb878,color:#fff
