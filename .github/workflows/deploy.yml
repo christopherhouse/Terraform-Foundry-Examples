@@ -24,6 +24,10 @@ on:
         description: 'Scenario 03 — private networking'
         type: boolean
         default: false
+      scenario_04:
+        description: 'Scenario 04 — multi-RG organization (private networking, lifecycle-split RGs)'
+        type: boolean
+        default: false
       apply:
         description: 'Apply (false = plan only)'
         type: boolean
@@ -69,6 +73,7 @@ jobs:
           INPUT_S01: ${{ inputs.scenario_01 }}
           INPUT_S02: ${{ inputs.scenario_02 }}
           INPUT_S03: ${{ inputs.scenario_03 }}
+          INPUT_S04: ${{ inputs.scenario_04 }}
           INPUT_APPLY: ${{ inputs.apply }}
         run: |
           set -euo pipefail
@@ -87,6 +92,7 @@ jobs:
             [[ "$INPUT_S01" == "true" ]] && folders+=("01-basic-foundry")
             [[ "$INPUT_S02" == "true" ]] && folders+=("02-external-services")
             [[ "$INPUT_S03" == "true" ]] && folders+=("03-private-networking")
+            [[ "$INPUT_S04" == "true" ]] && folders+=("04-multi-rg-organization")
             should_apply="${INPUT_APPLY}"
           else
             if [[ "$EVENT" == "pull_request" ]]; then
