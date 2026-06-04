@@ -108,6 +108,49 @@ So the data plane (Storage, Cosmos, Search, KV, LAW) stays on `azurerm` because 
 
 ---
 
+## 🪪 Identity and auth model
+
+### Which identities exist
+
+Two managed identities, both **system-assigned**, no user-assigned identities anywhere in this scenario:
+
+| Identity | On | Set by | Used for |
+|---|---|---|---|
+| 🧠 **Account SMI** | Foundry account (`cog-…`) | `identity { type = "SystemAssigned" }` on the account `azapi_resource` | Auth for the Foundry account itself when it talks to attached services *as the account* — specifically, writing connection credentials into the BYO Key Vault. |
+| 🗂️ **Project SMI** | Foundry project (`proj-…`) | `identity { type = "SystemAssigned" }` on the project `azapi_resource` | Runtime identity for agents in the project. Every data-plane call that an agent makes through an inherited connection runs as the project SMI. |
+
+System-assigned was chosen deliberately: the lifecycle of each identity is tied to its parent (delete the account or project and Entra cleans up the principal too), and the two identities can be granted distinct least-privilege roles without sharing a blast radius.
+
+### How connection `authType` maps to which identity authenticates
+
+Each account-scoped connection declares an `authType` that determines who actually calls the target service:
+
+| `authType` | Who authenticates to the target | Where the credential lives |
+|---|---|---|
+| `AAD` | The **caller's** AAD identity — for agent runtime calls, that's the **project SMI**. | Nowhere — Entra token at call time. |
+| `AccountManagedIdentity` | The **account SMI**. | Nowhere — Entra token at call time. |
+| `ApiKey` | The key itself. | Written into the BYO KV by the **account SMI** at connection-create time; read from KV at call time. |
+
+That's why every `ApiKey`-style connection makes the account SMI's Key Vault role load-bearing — see [BYO Key Vault gotcha](#-byo-key-vault-must-be-the-first-connection-and-the-account-smi-needs-write) below.
+
+### Required RBAC for each Foundry MI
+
+| Resource | Connection `authType` | Identity needing RBAC | Role(s) | When | Why |
+|---|---|---|---|---|---|
+| 🔐 **Key Vault** | `AccountManagedIdentity` | Account SMI | `Key Vault Secrets Officer` | Before any other connection | The account SMI writes credentials (e.g. App Insights `ApiKey`) into the BYO KV. Read-only `Secrets User` works only if every other connection is AAD. |
+| 💾 **Storage** | `AAD` | Project SMI | `Storage Blob Data Contributor` | Pre-capability-host | Lets the capability host create the `*-azureml-agent` containers under the project. |
+| 💾 **Storage** | `AAD` | Project SMI | `Storage Blob Data Owner` (ABAC-scoped to `*-azureml-agent` containers under the project GUID) | Post-capability-host | Runtime access to thread/agent blobs. ABAC scopes it to *this* project's containers only. |
+| 🪐 **Cosmos** | `AAD` | Project SMI | `Cosmos DB Operator` | Pre-capability-host | Control-plane: lets the capability host create the SQL containers / role defs. |
+| 🪐 **Cosmos** | `AAD` | Project SMI | `Cosmos DB Built-in Data Contributor` (SQL data-plane role `00000000-0000-0000-0000-000000000002`, scoped to the account) | Post-capability-host | Runtime data-plane read/write on thread storage. |
+| 🔎 **AI Search** | `AAD` | Project SMI | `Search Index Data Contributor` | Pre-capability-host | Lets the capability host (and agents at runtime) create / write to vector indexes. |
+| 🔎 **AI Search** | `AAD` | Project SMI | `Search Service Contributor` | Pre-capability-host | Lets the capability host manage indexes/skillsets at the service scope. |
+| 📈 **App Insights** | `ApiKey` | (none — key auth) | — | — | Telemetry SDKs use the connection string from the KV-stored credential. No AAD role needed on App Insights itself. |
+| 🧠 **Foundry account** | n/a | `var.foundry_users` (humans) | **Foundry User** (by role ID `53ca…456d`) | At account create | Data-plane AI access on the account. Not an MI grant — this is for the humans who'll call the account/project. |
+
+The pre/post-host split exists because some roles are needed *for* the capability host (it provisions containers / role defs at create time), while others target objects that don't exist until *after* the capability host has run (the `*-azureml-agent` containers, the project GUID in the ABAC condition, the Cosmos SQL role definitions). The [`time_sleep "wait_rbac"`](#-time_sleep-between-identity-creation-and-rbac) between the two phases lets Entra catch up before the host fires.
+
+---
+
 ## 🧩 Key Terraform bits worth a read
 
 A handful of decisions in [`modules/foundry-account/main.tf`](./modules/foundry-account/main.tf) and [`modules/foundry-project/main.tf`](./modules/foundry-project/main.tf) make this scenario survive Foundry's various ordering and propagation quirks.
