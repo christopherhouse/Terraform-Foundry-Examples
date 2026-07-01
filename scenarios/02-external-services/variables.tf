@@ -66,9 +66,9 @@ variable "embedding_sku_name" {
 }
 
 variable "embedding_capacity" {
-  description = "Capacity for the text-embedding-3-large deployment, in 1K TPM units."
+  description = "Capacity for the text-embedding-3-large deployment, in 1K TPM units. Knowledge-source ingestion embeds chunks in bursts, so keep headroom to avoid 429s (50 throttles on document uploads)."
   type        = number
-  default     = 50
+  default     = 150
 }
 
 variable "embedding_model_version" {
