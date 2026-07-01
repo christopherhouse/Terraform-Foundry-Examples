@@ -37,3 +37,8 @@ output "ai_search_name" {
   description = "Name of the AI Search service."
   value       = azapi_resource.ai_search.name
 }
+
+output "ai_search_identity_principal_id" {
+  description = "Principal ID of the AI Search service's system-assigned managed identity."
+  value       = azapi_resource.ai_search.output.identity.principalId
+}

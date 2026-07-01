@@ -23,6 +23,11 @@ variable "agent_subnet_id" {
   type        = string
 }
 
+variable "ai_search_identity_principal_id" {
+  description = "Principal ID of the AI Search service's system-assigned identity. Granted Cognitive Services OpenAI User on the account so integrated vectorization can call the embedding deployment."
+  type        = string
+}
+
 variable "gpt4o_sku_name" {
   description = "SKU name for the gpt-4o deployment."
   type        = string

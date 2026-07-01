@@ -30,6 +30,10 @@ output "ai_search_name" {
   value = azapi_resource.ai_search.name
 }
 
+output "ai_search_identity_principal_id" {
+  value = azapi_resource.ai_search.output.identity.principalId
+}
+
 output "key_vault_id" {
   value = azurerm_key_vault.this.id
 }

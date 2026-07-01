@@ -57,19 +57,20 @@ module "foundry_account" {
   embedding_capacity      = var.embedding_capacity
   embedding_model_version = var.embedding_model_version
 
-  storage_account_id             = module.data_resources.storage_account_id
-  storage_account_name           = module.data_resources.storage_account_name
-  storage_blob_endpoint          = module.data_resources.storage_blob_endpoint
-  cosmos_account_id              = module.data_resources.cosmos_account_id
-  cosmos_account_name            = module.data_resources.cosmos_account_name
-  cosmos_account_endpoint        = module.data_resources.cosmos_account_endpoint
-  ai_search_id                   = module.data_resources.ai_search_id
-  ai_search_name                 = module.data_resources.ai_search_name
-  key_vault_id                   = module.data_resources.key_vault_id
-  key_vault_name                 = module.data_resources.key_vault_name
-  app_insights_id                = module.data_resources.app_insights_id
-  app_insights_name              = module.data_resources.app_insights_name
-  app_insights_connection_string = module.data_resources.app_insights_connection_string
+  storage_account_id              = module.data_resources.storage_account_id
+  storage_account_name            = module.data_resources.storage_account_name
+  storage_blob_endpoint           = module.data_resources.storage_blob_endpoint
+  cosmos_account_id               = module.data_resources.cosmos_account_id
+  cosmos_account_name             = module.data_resources.cosmos_account_name
+  cosmos_account_endpoint         = module.data_resources.cosmos_account_endpoint
+  ai_search_id                    = module.data_resources.ai_search_id
+  ai_search_name                  = module.data_resources.ai_search_name
+  ai_search_identity_principal_id = module.data_resources.ai_search_identity_principal_id
+  key_vault_id                    = module.data_resources.key_vault_id
+  key_vault_name                  = module.data_resources.key_vault_name
+  app_insights_id                 = module.data_resources.app_insights_id
+  app_insights_name               = module.data_resources.app_insights_name
+  app_insights_connection_string  = module.data_resources.app_insights_connection_string
 
   foundry_users = var.foundry_users
 

@@ -94,6 +94,11 @@ variable "ai_search_name" {
   type        = string
 }
 
+variable "ai_search_identity_principal_id" {
+  description = "Principal ID of the AI Search service's system-assigned identity. Granted Cognitive Services OpenAI User on the account so integrated vectorization can call the embedding deployment."
+  type        = string
+}
+
 variable "key_vault_id" {
   description = "Key Vault resource ID."
   type        = string
