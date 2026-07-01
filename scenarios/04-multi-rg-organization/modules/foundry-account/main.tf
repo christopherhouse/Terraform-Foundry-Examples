@@ -89,6 +89,28 @@ resource "azurerm_role_assignment" "foundry_user" {
   principal_type     = each.value.principal_type
 }
 
+# The AI Search service's system-assigned identity performs integrated
+# vectorization: when a file is uploaded to a knowledge source, Search calls
+# this account's embedding deployment (text-embedding-3-large) through the
+# azureOpenAI vectorizer. Because the account sets disableLocalAuth = true, that
+# call must authenticate with Entra ID, so the Search SMI needs Cognitive
+# Services OpenAI User on the account. Without it, ingestion fails at the
+# embedding step. The Search service lives in rg-data and the account in rg-ai;
+# this role assignment spans that boundary by scope alone.
+#
+# NOTE: this grants authorization only. The Foundry account is private-endpoint
+# only, so the Search -> embedding call also needs a network path (a shared
+# private link from the search service to this account, approved on the account
+# side). That is not yet wired up here — see the branch TODO.
+resource "azurerm_role_assignment" "search_openai_user" {
+  scope                = azapi_resource.foundry_account.id
+  role_definition_name = "Cognitive Services OpenAI User"
+  principal_id         = var.ai_search_identity_principal_id
+  principal_type       = "ServicePrincipal"
+
+  depends_on = [time_sleep.wait_account_ready]
+}
+
 resource "azapi_resource" "gpt4o" {
   type      = "Microsoft.CognitiveServices/accounts/deployments@2026-03-01"
   parent_id = azapi_resource.foundry_account.id

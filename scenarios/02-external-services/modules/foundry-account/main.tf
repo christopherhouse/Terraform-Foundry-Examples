@@ -90,6 +90,23 @@ resource "azurerm_role_assignment" "account_kv_secrets_officer" {
   depends_on = [time_sleep.wait_account_ready]
 }
 
+# The AI Search service's system-assigned identity performs integrated
+# vectorization: when a file is uploaded to a knowledge source, Search calls
+# this account's embedding deployment (text-embedding-3-large) through the
+# azureOpenAI vectorizer. Because the account sets disableLocalAuth = true, that
+# call must authenticate with Entra ID, so the Search SMI needs Cognitive
+# Services OpenAI User on the account. Without it, ingestion fails at the
+# embedding step. This is the search -> embedding hop, distinct from the
+# project -> search grants in the foundry-project module.
+resource "azurerm_role_assignment" "search_openai_user" {
+  scope                = azapi_resource.foundry_account.id
+  role_definition_name = "Cognitive Services OpenAI User"
+  principal_id         = var.ai_search_identity_principal_id
+  principal_type       = "ServicePrincipal"
+
+  depends_on = [time_sleep.wait_account_ready]
+}
+
 # Model deployments ------------------------------------------------------------
 
 resource "azapi_resource" "gpt4o" {

@@ -80,6 +80,8 @@ module "foundry_account" {
   embedding_capacity      = var.embedding_capacity
   embedding_model_version = var.embedding_model_version
 
+  ai_search_identity_principal_id = module.data_resources.ai_search_identity_principal_id
+
   foundry_users = var.foundry_users
 
   tags = local.tags
